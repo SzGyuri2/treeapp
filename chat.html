@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <title>Segítség chat – Faültető App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { --bg:#06131a; --card:#0b1c23; --text:#e6f3ee; --muted:#9fb7ae; --primary:#4cb8ff; --accent:#22c55e; }
+    body { margin:0; background: radial-gradient(1200px 600px at 70% 10%, #0e2230 0%, #06131a 60%, #030a0f 100%); color:var(--text); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    header { padding:20px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #14313e; }
+    .container { max-width:900px; margin:18px auto; padding:16px; }
+    .card { background: rgba(11,28,35,.7); border:1px solid #14313e; border-radius:16px; padding:16px; box-shadow:0 16px 48px rgba(0,0,0,.45); }
+    .chat { display:flex; flex-direction:column; gap:8px; max-height:60vh; overflow:auto; padding:8px; background:#071920; border:1px solid #14313e; border-radius:12px; }
+    .bubble { max-width:75%; padding:10px 12px; border-radius:12px; }
+    .user { align-self:flex-end; background:linear-gradient(180deg,#6bd0ff,#2f9be6); color:#03243a; }
+    .bot { align-self:flex-start; background:#0b1c23; border:1px solid #14313e; }
+    .row { display:flex; gap:8px; margin-top:10px; }
+    input { flex:1; padding:12px; border-radius:10px; background:#082029; color:#e6f3ee; border:1px solid #14313e; }
+    button { padding:12px 14px; border-radius:10px; border:1px solid #14313e; background:#082029; color:#e6f3ee; cursor:pointer; font-weight:700; }
+    .hint { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>🌍 Segítség chat</div>
+    <a href="index.html" style="color:#4cb8ff;">Vissza</a>
+  </header>
+  <div class="container">
+    <div class="card">
+      <div id="chat" class="chat"></div>
+      <div class="row">
+        <input id="prompt" placeholder="Írd be, miben segíthetek… (pl. hogyan veszek coint?)">
+        <button id="sendBtn">Küldés</button>
+      </div>
+      <div class="hint">Tipp: kérdezhetsz coin vásárlásról, faültetésről, rangsorról, élő feedről, regisztrációról és bejelentkezésről.</div>
+    </div>
+  </div>
+
+  <script>
+    // OpenRouter API kulcsod
+    const OPENROUTER_API_KEY = "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";
+    const MODEL = "openai/gpt-4o-mini"; // válthatsz pl. "meta-llama/Llama-3-8b-chat-hf"-re
+
+    // System prompt: identitás + hangnem + feladat
+    const SYSTEM_PROMPT = `
+Te egy környezetvédő Faültető App beépített segítője vagy. Feladatod:
+- Adj pontos, lépésről-lépésre útmutatót az app funkcióira (coin vásárlás, faültetés, rangsor, élő ültetési feed, vissza gomb, chat, regisztráció és bejelentkezés).
+- Legyél empatikus és lényegre törő; ha hibát ír a rendszer, magyarázd el, miért, és hogyan javítható.
+- Röviden is tudj válaszolni, de ha a kérés igényli, adj részletes, teljes körű választ.
+- Soha ne adj hamis ígéretet. Ha valami a kliens oldalon korlátos (pl. e-mail küldés), jelezd és adj működő kerülőutakat.
+`;
+
+    // Alkalmazás tudásbázis – részletes, kifejezett válaszokhoz
+    const KB = `
+[Alkalmazás fő funkciók]
+- Coin vásárlás: coins.html oldalon gombokkal (+100, +500, +1000). Jóváírás azonnal, animált egyenleg frissítéssel. Vissza gomb: app.html#treesSection.
+- Faültetés: app.html főoldalon a "Fa vásárlása" gomb. A fák ára (példa): Tölgy 100, Juhar 80, Nyár 60, Fenyő 120, Cseresznye 150 coin. Ültetéskor többfázisú animáció (🌱 → 🌿 → 🌳/🌲/🌴/🍁/🌸), coin levonás, fák száma növekszik.
+- Élő ültetési feed: jobb oldali panelben (app.html) naplózza, ki milyen fát ültetett és mennyi coinért, időbélyeggel. Maradandó: localStorage-ban őrizzük (feed_v1).
+- Rangsor: badge-ek (🥇/🥈/🥉/🌿), animált sáv jelzi a fák számát. Rendezés: ültetett fák száma szerint. Mutatja a coin és fa értéket is.
+- Vissza gomb: a főoldalon "Vissza a fákhoz" a fa szekcióhoz görget; a coins.html visszavisz közvetlenül az app.html#treesSection szekcióra.
+
+[Regisztráció és bejelentkezés]
+- Regisztráció (register.html): e-mail bekérése, generált felhasználónév és jelszó; tárolás localStorage-ban (users_v2). Opcionális e-mail küldés EmailJS-sel (kliens-oldali).
+- Bejelentkezés (login.html): felhasználónév + jelszó páros ellenőrzése localStorage-ból; siker esetén sessionStorage-ben tároljuk a currentUserId-t, majd app.html-re lépünk.
+- Biztonsági megjegyzés: kliens-oldali tárolás fejlesztői demóhoz ideális, éles környezetben szerveroldali auth szükséges.
+
+[Chat]
+- Chat oldal: chat.html. OpenRouter API kulccsal hívja a modellt. Ha kvóta hiba van vagy nincs válasz, jelezd és adj alternatívát (pl. rövid offline súgó).
+- System prompt és tudásbázis alapján az app-specifikus kérdésekre elsődlegesen az itt leírtak szerint válaszol.
+
+[Hibaelhárítás – tipikus problémák és megoldások]
+- Nem töltődik be a chat: ellenőrizd a kulcsot, modellt és az internetet; próbáld újra 10–20s múlva. Ha kvóta hiba: nézd meg az OpenRouter fiókot és keretet.
+- Coin vásárlás nem írja jóvá: frissítsd a böngészőt; ellenőrizd, hogy a currentUserId be van-e állítva sessionStorage-ban; a localStorage (users_v2) írható-e; nem privát mód-e a böngésző?
+- Faültetésnél „nincs elég coin”: ellenőrizd az egyenleget; vegyél coint a coins.html-en; kiválasztott fa ára lehet magasabb, mint az egyenleg.
+- Rangsor nem frissül: ültetés után fut-e a renderLeaderboard(); töröld a cache-t és frissítsd az oldalt; ellenőrizd a localStorage-ban az adatok változását.
+- Élő feed nem mutatja az új ültetéseket: saveFeed/feed_v1 kulcs írható-e; a pushFeedEntry fut-e ültetéskor; görgess a feed panelt.
+- E-mail küldés nem megy: kliens-oldalon közvetlenül nem lehetséges; használj EmailJS-t a kliensből, vagy szerveroldali SMTP-t (Node.js/SES/SendGrid). Ha EmailJS nincs inicializálva, az e-mail küldést a kód kihagyja, de a regisztráció létrejön.
+- Bejelentkezés sikertelen: rossz felhasználónév/jelszó; a regisztrációkor kapott adatokkal lépj be; ellenőrizd, hogy a users_v2 tárolja a bejegyzést.
+
+[Használati tippek]
+- Coin bolt: kezdd +500 cointtal, hogy kipróbáld az összes fa animációját.
+- Rangsor: többen teszteljetek külön felhasználókkal, így látványosabb lesz.
+- Feed: ha hosszú, görgess; a legújabb bejegyzés felül jelenik meg.
+
+[Korlátok és javaslatok]
+- A kliens-oldali tárolás demó jellegű. Élesben: backend, adatbázis, szerveroldali e-mail.
+- Chat kulcs: a kliensben látszik; élesben proxyzd szerverrel.
+`;
+
+    // Az üzenet összeállítása: rendszer prompt + tudásbázis + felhasználói kérdés
+    function buildMessages(userMessage) {
+      const context = `
+[Felhasználói kérdés]
+${userMessage}
+
+[Alkalmazás tudásbázis]
+${KB}
+`;
+      return [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: context },
+        { role: "user", content: userMessage }
+      ];
+    }
+
+    async function askOpenRouter(message) {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + OPENROUTER_API_KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          messages: buildMessages(message),
+        })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message || "Ismeretlen hiba az OpenRouter válaszban.");
+      return data.choices[0]?.message?.content || "Nincs tartalom a válaszban.";
+    }
+
+    const chat = document.getElementById('chat');
+    const promptEl = document.getElementById('prompt');
+    const sendBtn = document.getElementById('sendBtn');
+
+    function addBubble(text, cls){
+      const b = document.createElement('div');
+      b.className = 'bubble ' + cls;
+      b.textContent = text;
+      chat.appendChild(b);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    sendBtn.addEventListener('click', async () => {
+      const text = promptEl.value.trim();
+      if (!text) return;
+      addBubble(text, 'user');
+      promptEl.value = '';
+      addBubble('Gondolkodom…', 'bot');
+      try {
+        const answer = await askOpenRouter(text);
+        chat.lastChild.textContent = answer;
+      } catch(e) {
+        chat.lastChild.textContent = 'Nem sikerült válaszolni: ' + e.message + ' • Tipp: ellenőrizd az API kulcsot/kvótát, próbáld újra később. Ha közben gyors segítség kell: Coin vásárlás a coins.html oldalon, faültetés az app.html főoldalon, vissza gomb az app.html#treesSection szekcióhoz. Bejelentkezés/login.html, regisztráció/register.html.';
+      }
+    });
+  </script>
+</body>
+</html>

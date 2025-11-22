@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <title>Coin vásárlás – Faültető App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { --bg:#06131a; --card:#0b1c23; --text:#e6f3ee; --muted:#9fb7ae; --accent:#22c55e; --primary:#4cb8ff; }
+    body { margin:0; background: radial-gradient(1200px 600px at 70% 10%, #0e2230 0%, #06131a 60%, #030a0f 100%); color:var(--text); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    .center { min-height:100vh; display:grid; place-items:center; padding:24px; }
+    .card { background: rgba(11,28,35,.7); border:1px solid #14313e; border-radius:16px; padding:24px; width:100%; max-width:520px; box-shadow:0 16px 48px rgba(0,0,0,.45); text-align:center; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-top:10px; }
+    .btn { padding:12px 18px; border-radius:10px; border:1px solid transparent; cursor:pointer; font-weight:700; }
+    .btn-accent { background:linear-gradient(180deg, #34d399, #22c55e); color:#06291a; }
+    .btn-primary { background:linear-gradient(180deg, #6bd0ff, #2f9be6); color:#03243a; }
+    .muted { color:#9fb7ae; font-size:12px; margin-top:8px; }
+  </style>
+</head>
+<body>
+  <div class="center">
+    <div class="card">
+      <h1>Coin vásárlás 💰</h1>
+      <div id="balance">Egyenleg: –</div>
+      <div class="row">
+        <button class="btn btn-accent" data-amount="100">+100 coin</button>
+        <button class="btn btn-accent" data-amount="500">+500 coin</button>
+        <button class="btn btn-accent" data-amount="1000">+1000 coin</button>
+      </div>
+      <div class="row">
+        <button class="btn btn-primary" id="backBtn">Vissza a fákhoz</button>
+      </div>
+      <div class="muted">Teszt módban a coin azonnal jóváíródik.</div>
+    </div>
+  </div>
+
+  <script>
+    const USERS_KEY = 'users_v2';
+    function loadUsers(){ return JSON.parse(localStorage.getItem(USERS_KEY) || '[]'); }
+    function saveUsers(users){ localStorage.setItem(USERS_KEY, JSON.stringify(users)); }
+
+    const currentUserId = Number(sessionStorage.getItem('currentUserId')||0);
+    if (!currentUserId) window.location.href='index.html';
+    let users = loadUsers();
+    let user = users.find(u => u.id === currentUserId);
+
+    function renderBalance(){ document.getElementById('balance').textContent = 'Egyenleg: ' + user.coins + ' coin'; }
+
+    function smoothAdd(amount){
+      const start = user.coins, end = user.coins + amount;
+      const steps = 24; let i=0;
+      const tick = () => { i++; const val = Math.round(start + (end-start)*(i/steps)); document.getElementById('balance').textContent = 'Egyenleg: ' + val + ' coin'; if (i<steps) requestAnimationFrame(tick); };
+      tick();
+    }
+
+    document.querySelectorAll('[data-amount]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const amount = Number(btn.getAttribute('data-amount'));
+        smoothAdd(amount);
+        user.coins += amount;
+        users = users.map(u => u.id === user.id ? user : u); saveUsers(users);
+        alert(`Siker: +${amount} coin. Új egyenleg: ${user.coins}`);
+      });
+    });
+
+    document.getElementById('backBtn').addEventListener('click', () => {
+      window.location.href = 'app.html#treesSection';
+    });
+
+    renderBalance();
+  </script>
+</body>
+</html>

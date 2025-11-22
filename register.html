@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <title>Regisztráció – Faültető App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { --bg:#06131a; --card:#0b1c23; --text:#e6f3ee; --muted:#9fb7ae; --accent:#22c55e; --primary:#4cb8ff; }
+    body { margin:0; background: radial-gradient(1200px 600px at 70% 10%, #0e2230 0%, #06131a 60%, #030a0f 100%); color:var(--text); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    .center { min-height:100vh; display:grid; place-items:center; padding:24px; }
+    .card { background: rgba(11,28,35,.7); border:1px solid #14313e; border-radius:16px; padding:24px; width:100%; max-width:520px; box-shadow:0 16px 48px rgba(0,0,0,.45); }
+    label { display:block; margin-bottom:8px; color:var(--muted); }
+    input { width:100%; padding:12px; border-radius:10px; background:#082029; color:var(--text); border:1px solid #14313e; outline:none; }
+    input:focus { border-color:#2f9be6; box-shadow: 0 0 0 4px rgba(47,155,230,.15); }
+    .btn { width:100%; margin-top:12px; padding:12px; border-radius:10px; border:0; cursor:pointer; font-weight:700; }
+    .btn-accent { background:linear-gradient(180deg, #34d399, #22c55e); color:#06291a; }
+    .muted { text-align:center; color:var(--muted); margin-top:10px; font-size:12px; }
+  </style>
+</head>
+<body>
+  <div class="center">
+    <div class="card">
+      <h1>Regisztráció</h1>
+      <label for="email">E-mail cím</label>
+      <input id="email" placeholder="pelda@domain.hu" type="email" required>
+      <label for="username">Felhasználónév</label>
+      <input id="username" placeholder="Válassz felhasználónevet" required>
+      <label for="password">Jelszó</label>
+      <input id="password" type="password" placeholder="Adj meg jelszót" required>
+      <button class="btn btn-accent" id="registerBtn">Regisztrálok</button>
+      <div class="muted"><a href="login.html" style="color:#4cb8ff;">Már van fiókod? Jelentkezz be!</a></div>
+    </div>
+  </div>
+
+  <script>
+    const USERS_KEY = 'users_v2';
+
+    function loadUsers(){ return JSON.parse(localStorage.getItem(USERS_KEY) || '[]'); }
+    function saveUsers(users){ localStorage.setItem(USERS_KEY, JSON.stringify(users)); }
+
+    document.getElementById('registerBtn').addEventListener('click', () => {
+      const email = document.getElementById('email').value.trim();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      if (!email || !username || !password) {
+        alert('Minden mezőt tölts ki!');
+        return;
+      }
+
+      let users = loadUsers();
+      const existingEmail = users.find(u => u.email === email);
+      const existingUser = users.find(u => u.username === username);
+
+      if (existingEmail) {
+        alert('Ez az e-mail cím már regisztrált. Jelentkezz be!');
+        return;
+      }
+      if (existingUser) {
+        alert('Ez a felhasználónév már foglalt. Válassz másikat!');
+        return;
+      }
+
+      const user = { 
+        id: Date.now(), 
+        email, 
+        username, 
+        password, 
+        coins: 500, 
+        trees: 0, 
+        avatar: '🌳', 
+        createdAt: new Date().toISOString() 
+      };
+      users.push(user); 
+      saveUsers(users);
+
+      alert("Sikeres regisztráció! Most már be tudsz jelentkezni.");
+      sessionStorage.setItem('currentUserId', String(user.id));
+      window.location.href = 'app.html';
+    });
+  </script>
+</body>
+</html>
+
